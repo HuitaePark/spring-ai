@@ -167,6 +167,45 @@ spring:
           enabled: true
 ----
 
+=== Accessing HTTP Headers (Context Extraction)
+
+By default, the `McpTransportContext` is empty (`McpTransportContext.EMPTY`).
+This is by design, to keep the MCP server transport-agnostic.
+
+If you need transport-specific metadata (for example, `Authorization` or tenant IDs) in your tools,
+configure a `TransportContextExtractor` on your transport provider.
+
+For security reasons, prefer extracting only the required values (allowlist) rather than passing the full request
+or all headers.
+
+[source,java]
+----
+@Bean
+public WebMvcStreamableServerTransportProvider transport() {
+    return WebMvcStreamableServerTransportProvider.builder()
+        .contextExtractor(serverRequest -> {
+            String authorization = serverRequest.headers().getFirst(HttpHeaders.AUTHORIZATION);
+            return McpTransportContext.create(Map.of("authorization", authorization));
+        })
+        .build();
+}
+----
+
+Once configured, access the context via `McpSyncServerExchange` (or `McpAsyncServerExchange`) in your tool.
+
+[source,java]
+----
+@McpTool
+public String accessProtectedResource(McpSyncServerExchange exchange) {
+    McpTransportContext context = exchange.transportContext();
+    String authorization = (String) context.get("authorization");
+
+    // Use the extracted value for internal logic (for example, downstream calls).
+    // Avoid logging or returning sensitive headers.
+    return "Successfully accessed protected resource.";
+}
+----
+
 === Additional Resources
 
 * xref:api/mcp/mcp-annotations-server.adoc[Server Annotations Reference] - Complete guide to server annotations
