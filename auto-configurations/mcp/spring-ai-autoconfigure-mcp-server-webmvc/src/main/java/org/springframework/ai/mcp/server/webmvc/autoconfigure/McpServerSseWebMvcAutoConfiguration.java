@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 package org.springframework.ai.mcp.server.webmvc.autoconfigure;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
-import io.modelcontextprotocol.server.transport.WebMvcSseServerTransportProvider;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerStdioDisabledCondition;
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerSseProperties;
+import org.springframework.ai.mcp.server.webmvc.transport.WebMvcSseServerTransportProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -66,20 +66,23 @@ import org.springframework.web.servlet.function.ServerResponse;
  * @see McpServerSseProperties
  * @see WebMvcSseServerTransportProvider
  */
+// before: McpServerAutoConfiguration defines a low priority
+// McpServerTransportProviderBase bean and this conf should have priority
 @AutoConfiguration(before = McpServerAutoConfiguration.class)
 @EnableConfigurationProperties(McpServerSseProperties.class)
 @ConditionalOnClass(WebMvcSseServerTransportProvider.class)
 @ConditionalOnMissingBean(McpServerTransportProvider.class)
 @Conditional({ McpServerStdioDisabledCondition.class, McpServerAutoConfiguration.EnabledSseServerCondition.class })
+@Deprecated(since = "2.0.0", forRemoval = true)
 public class McpServerSseWebMvcAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
 	public WebMvcSseServerTransportProvider webMvcSseServerTransportProvider(
-			@Qualifier("mcpServerObjectMapper") ObjectMapper objectMapper, McpServerSseProperties serverProperties) {
+			@Qualifier("mcpServerJsonMapper") JsonMapper jsonMapper, McpServerSseProperties serverProperties) {
 
 		return WebMvcSseServerTransportProvider.builder()
-			.jsonMapper(new JacksonMcpJsonMapper(objectMapper))
+			.jsonMapper(new JacksonMcpJsonMapper(jsonMapper))
 			.baseUrl(serverProperties.getBaseUrl())
 			.sseEndpoint(serverProperties.getSseEndpoint())
 			.messageEndpoint(serverProperties.getSseMessageEndpoint())

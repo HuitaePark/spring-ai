@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 package org.springframework.ai.mcp.server.webflux.autoconfigure;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
-import io.modelcontextprotocol.server.transport.WebFluxSseServerTransportProvider;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpServerTransportProvider;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerStdioDisabledCondition;
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerSseProperties;
+import org.springframework.ai.mcp.server.webflux.transport.WebFluxSseServerTransportProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -53,19 +53,6 @@ import org.springframework.web.reactive.function.server.RouterFunction;
  * communication</li>
  * <li>A RouterFunction bean that sets up the reactive SSE endpoint</li>
  * </ul>
- * <p>
- * Required dependencies:
- *
- * <pre>{@code
- * <dependency>
- *     <groupId>io.modelcontextprotocol.sdk</groupId>
- *     <artifactId>mcp-spring-webflux</artifactId>
- * </dependency>
- * <dependency>
- *     <groupId>org.springframework.boot</groupId>
- *     <artifactId>spring-boot-starter-webflux</artifactId>
- * </dependency>
- * }</pre>
  *
  * @author Christian Tzolov
  * @author Yanming Zhou
@@ -73,20 +60,23 @@ import org.springframework.web.reactive.function.server.RouterFunction;
  * @see McpServerSseProperties
  * @see WebFluxSseServerTransportProvider
  */
+// before: McpServerAutoConfiguration defines a low priority
+// McpServerTransportProviderBase bean and this conf should have priority
 @AutoConfiguration(before = McpServerAutoConfiguration.class)
 @EnableConfigurationProperties(McpServerSseProperties.class)
 @ConditionalOnClass(WebFluxSseServerTransportProvider.class)
 @ConditionalOnMissingBean(McpServerTransportProvider.class)
 @Conditional({ McpServerStdioDisabledCondition.class, McpServerAutoConfiguration.EnabledSseServerCondition.class })
+@Deprecated(since = "2.0.0", forRemoval = true)
 public class McpServerSseWebFluxAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public WebFluxSseServerTransportProvider webFluxTransport(
-			@Qualifier("mcpServerObjectMapper") ObjectMapper objectMapper, McpServerSseProperties serverProperties) {
+	public WebFluxSseServerTransportProvider webFluxTransport(@Qualifier("mcpServerJsonMapper") JsonMapper jsonMapper,
+			McpServerSseProperties serverProperties) {
 
 		return WebFluxSseServerTransportProvider.builder()
-			.jsonMapper(new JacksonMcpJsonMapper(objectMapper))
+			.jsonMapper(new JacksonMcpJsonMapper(jsonMapper))
 			.basePath(serverProperties.getBaseUrl())
 			.messageEndpoint(serverProperties.getSseMessageEndpoint())
 			.sseEndpoint(serverProperties.getSseEndpoint())

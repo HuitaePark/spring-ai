@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.opensearch.testcontainers.OpensearchContainer;
+import org.opensearch.testcontainers.OpenSearchContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OpenSearchVectorStoreNonAwsFallbackIT {
 
 	@Container
-	private static final OpensearchContainer<?> opensearchContainer = new OpensearchContainer<>(
+	private static final OpenSearchContainer<?> opensearchContainer = new OpenSearchContainer<>(
 			DockerImageName.parse("opensearchproject/opensearch:2.13.0"));
 
 	private static final String DOCUMENT_INDEX = "nonaws-spring-ai-document-index";
@@ -53,8 +53,8 @@ class OpenSearchVectorStoreNonAwsFallbackIT {
 		.withUserConfiguration(Config.class)
 		.withPropertyValues("spring.ai.vectorstore.opensearch.aws.enabled=false",
 				"spring.ai.vectorstore.opensearch.uris=" + opensearchContainer.getHttpHostAddress(),
-				"spring.ai.vectorstore.opensearch.indexName=" + DOCUMENT_INDEX,
-				"spring.ai.vectorstore.opensearch.mappingJson={\"properties\":{\"embedding\":{\"type\":\"knn_vector\",\"dimension\":384}}}");
+				"spring.ai.vectorstore.opensearch.index-name=" + DOCUMENT_INDEX,
+				"spring.ai.vectorstore.opensearch.mapping-json={\"properties\":{\"embedding\":{\"type\":\"knn_vector\",\"dimension\":384}}}");
 
 	private List<Document> documents = List.of(
 			new Document("1", getText("classpath:/test/data/spring.ai.txt"), Map.of("meta1", "meta1")),

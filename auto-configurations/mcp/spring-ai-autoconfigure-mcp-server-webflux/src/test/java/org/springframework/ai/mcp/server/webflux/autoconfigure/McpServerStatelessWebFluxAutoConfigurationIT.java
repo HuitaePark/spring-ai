@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 package org.springframework.ai.mcp.server.webflux.autoconfigure;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
-import io.modelcontextprotocol.server.transport.WebFluxStatelessServerTransport;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
-import org.springframework.ai.mcp.server.common.autoconfigure.McpServerObjectMapperAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.McpServerJsonMapperAutoConfiguration;
+import org.springframework.ai.mcp.server.webflux.transport.WebFluxStatelessServerTransport;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -37,7 +37,7 @@ class McpServerStatelessWebFluxAutoConfigurationIT {
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 		.withPropertyValues("spring.ai.mcp.server.protocol=STATELESS")
 		.withConfiguration(AutoConfigurations.of(McpServerStatelessWebFluxAutoConfiguration.class,
-				McpServerObjectMapperAutoConfiguration.class));
+				McpServerJsonMapperAutoConfiguration.class));
 
 	@Test
 	void defaultConfiguration() {
@@ -48,8 +48,8 @@ class McpServerStatelessWebFluxAutoConfigurationIT {
 	}
 
 	@Test
-	void objectMapperConfiguration() {
-		this.contextRunner.withBean(ObjectMapper.class, ObjectMapper::new).run(context -> {
+	void jsonMapperConfiguration() {
+		this.contextRunner.withBean(JsonMapper.class, JsonMapper::new).run(context -> {
 			assertThat(context).hasSingleBean(WebFluxStatelessServerTransport.class);
 			assertThat(context).hasSingleBean(RouterFunction.class);
 		});
@@ -65,7 +65,7 @@ class McpServerStatelessWebFluxAutoConfigurationIT {
 
 	@Test
 	void serverBaseUrlConfiguration() {
-		this.contextRunner.withPropertyValues("spring.ai.mcp.server.streamable-http.mcpEndpoint=/test")
+		this.contextRunner.withPropertyValues("spring.ai.mcp.server.streamable-http.mcp-endpoint=/test")
 			.run(context -> assertThat(context.getBean(WebFluxStatelessServerTransport.class)).extracting("mcpEndpoint")
 				.isEqualTo("/test"));
 	}
@@ -98,13 +98,13 @@ class McpServerStatelessWebFluxAutoConfigurationIT {
 	}
 
 	@Test
-	void customObjectMapperIsUsed() {
-		ObjectMapper customObjectMapper = new ObjectMapper();
-		this.contextRunner.withBean("customObjectMapper", ObjectMapper.class, () -> customObjectMapper).run(context -> {
+	void customJsonMapperIsUsed() {
+		JsonMapper customJsonMapper = new JsonMapper();
+		this.contextRunner.withBean("customJsonMapper", JsonMapper.class, () -> customJsonMapper).run(context -> {
 			assertThat(context).hasSingleBean(WebFluxStatelessServerTransport.class);
 			assertThat(context).hasSingleBean(RouterFunction.class);
-			// Verify the custom ObjectMapper is used
-			assertThat(context.getBean(ObjectMapper.class)).isSameAs(customObjectMapper);
+			// Verify the custom JsonMapper is used
+			assertThat(context.getBean(JsonMapper.class)).isSameAs(customJsonMapper);
 		});
 	}
 
@@ -123,7 +123,7 @@ class McpServerStatelessWebFluxAutoConfigurationIT {
 		this.contextRunner
 			.withBean("customWebFluxProvider", WebFluxStatelessServerTransport.class,
 					() -> WebFluxStatelessServerTransport.builder()
-						.jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
+						.jsonMapper(new JacksonMcpJsonMapper(new JsonMapper()))
 						.messageEndpoint("/custom")
 						.build())
 			.run(context -> {
@@ -162,7 +162,7 @@ class McpServerStatelessWebFluxAutoConfigurationIT {
 	@Test
 	void allPropertiesConfiguration() {
 		this.contextRunner
-			.withPropertyValues("spring.ai.mcp.server.streamable-http.mcpEndpoint=/custom-endpoint",
+			.withPropertyValues("spring.ai.mcp.server.streamable-http.mcp-endpoint=/custom-endpoint",
 					"spring.ai.mcp.server.streamable-http.disallow-delete=true")
 			.run(context -> {
 				WebFluxStatelessServerTransport provider = context.getBean(WebFluxStatelessServerTransport.class);

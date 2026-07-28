@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 package org.springframework.ai.mcp.server.webmvc.autoconfigure;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
-import io.modelcontextprotocol.server.transport.WebMvcStatelessServerTransport;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerStatelessAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerStdioDisabledCondition;
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerStreamableHttpProperties;
+import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStatelessServerTransport;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -48,11 +48,11 @@ public class McpServerStatelessWebMvcAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	public WebMvcStatelessServerTransport webMvcStatelessServerTransport(
-			@Qualifier("mcpServerObjectMapper") ObjectMapper objectMapper,
+			@Qualifier("mcpServerJsonMapper") JsonMapper jsonMapper,
 			McpServerStreamableHttpProperties serverProperties) {
 
 		return WebMvcStatelessServerTransport.builder()
-			.jsonMapper(new JacksonMcpJsonMapper(objectMapper))
+			.jsonMapper(new JacksonMcpJsonMapper(jsonMapper))
 			.messageEndpoint(serverProperties.getMcpEndpoint())
 			.build();
 	}

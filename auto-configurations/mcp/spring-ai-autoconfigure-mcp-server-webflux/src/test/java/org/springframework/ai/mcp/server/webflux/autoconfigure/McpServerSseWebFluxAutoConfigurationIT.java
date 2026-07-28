@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 package org.springframework.ai.mcp.server.webflux.autoconfigure;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.transport.WebFluxSseServerTransportProvider;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerAutoConfiguration;
-import org.springframework.ai.mcp.server.common.autoconfigure.McpServerObjectMapperAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.McpServerJsonMapperAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerSseProperties;
+import org.springframework.ai.mcp.server.webflux.transport.WebFluxSseServerTransportProvider;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.web.reactive.function.server.RouterFunction;
@@ -36,7 +36,7 @@ class McpServerSseWebFluxAutoConfigurationIT {
 
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 		.withConfiguration(AutoConfigurations.of(McpServerSseWebFluxAutoConfiguration.class,
-				McpServerAutoConfiguration.class, McpServerObjectMapperAutoConfiguration.class));
+				McpServerAutoConfiguration.class, McpServerJsonMapperAutoConfiguration.class));
 
 	@Test
 	void defaultConfiguration() {
@@ -72,8 +72,8 @@ class McpServerSseWebFluxAutoConfigurationIT {
 	}
 
 	@Test
-	void objectMapperConfiguration() {
-		this.contextRunner.withBean(ObjectMapper.class, ObjectMapper::new).run(context -> {
+	void jsonMapperConfiguration() {
+		this.contextRunner.withBean(JsonMapper.class, JsonMapper::new).run(context -> {
 			assertThat(context).hasSingleBean(WebFluxSseServerTransportProvider.class);
 			assertThat(context).hasSingleBean(RouterFunction.class);
 		});

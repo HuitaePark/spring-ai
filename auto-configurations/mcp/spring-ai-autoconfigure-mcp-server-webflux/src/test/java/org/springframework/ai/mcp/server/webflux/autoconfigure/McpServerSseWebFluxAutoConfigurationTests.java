@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 package org.springframework.ai.mcp.server.webflux.autoconfigure;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import io.modelcontextprotocol.server.transport.WebFluxSseServerTransportProvider;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
-import org.springframework.ai.mcp.server.common.autoconfigure.McpServerObjectMapperAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.McpServerJsonMapperAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerProperties;
+import org.springframework.ai.mcp.server.webflux.transport.WebFluxSseServerTransportProvider;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -34,21 +34,21 @@ class McpServerSseWebFluxAutoConfigurationTests {
 
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
 		.withConfiguration(AutoConfigurations.of(McpServerSseWebFluxAutoConfiguration.class,
-				McpServerObjectMapperAutoConfiguration.class, TestConfiguration.class));
+				McpServerJsonMapperAutoConfiguration.class, TestConfiguration.class));
 
 	@Test
-	void shouldConfigureWebFluxTransportWithCustomObjectMapper() {
+	void shouldConfigureWebFluxTransportWithCustomJsonMapper() {
 		this.contextRunner.run(context -> {
 			assertThat(context).hasSingleBean(WebFluxSseServerTransportProvider.class);
 			assertThat(context).hasSingleBean(RouterFunction.class);
 			assertThat(context).hasSingleBean(McpServerProperties.class);
 
-			JsonMapper jsonMapper = context.getBean("mcpServerObjectMapper", JsonMapper.class);
+			JsonMapper jsonMapper = context.getBean("mcpServerJsonMapper", JsonMapper.class);
 
 			// Verify that the JsonMapper is configured to ignore unknown properties
 
-			assertThat(jsonMapper
-				.isEnabled(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)).isFalse();
+			assertThat(jsonMapper.isEnabled(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES))
+				.isFalse();
 
 			// Test with a JSON payload containing unknown fields
 			// CHECKSTYLE:OFF

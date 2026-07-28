@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,25 +22,25 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.transport.WebFluxStreamableServerTransportProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.springaicommunity.mcp.annotation.McpTool;
-import org.springaicommunity.mcp.annotation.McpToolParam;
-import org.springaicommunity.mcp.context.McpSyncRequestContext;
 import reactor.netty.DisposableServer;
 import reactor.netty.http.server.HttpServer;
 
 import org.springframework.ai.mcp.McpToolUtils;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
+import org.springframework.ai.mcp.annotation.context.McpSyncRequestContext;
 import org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration;
 import org.springframework.ai.mcp.client.common.autoconfigure.McpToolCallbackAutoConfiguration;
 import org.springframework.ai.mcp.client.common.autoconfigure.annotations.McpClientAnnotationScannerAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerAutoConfiguration;
-import org.springframework.ai.mcp.server.common.autoconfigure.McpServerObjectMapperAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.McpServerJsonMapperAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.ToolCallbackConverterAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerAnnotationScannerAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerSpecificationFactoryAutoConfiguration;
+import org.springframework.ai.mcp.server.webflux.transport.WebFluxStreamableServerTransportProvider;
 import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration;
 import org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration;
 import org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration;
@@ -63,19 +63,19 @@ import static org.awaitility.Awaitility.await;
 /**
  * @author Christian Tzolov
  */
-@EnabledIfEnvironmentVariable(named = "ANTHROPIC_API_KEY", matches = ".*")
+@EnabledIfEnvironmentVariable(named = "ANTHROPIC_API_KEY", matches = ".+")
 public class McpToolCallProviderCachingIT {
 
 	private final ApplicationContextRunner serverContextRunner = new ApplicationContextRunner()
 		.withPropertyValues("spring.ai.mcp.server.protocol=STREAMABLE")
 		.withConfiguration(AutoConfigurations.of(McpServerAutoConfiguration.class,
-				McpServerObjectMapperAutoConfiguration.class, ToolCallbackConverterAutoConfiguration.class,
+				McpServerJsonMapperAutoConfiguration.class, ToolCallbackConverterAutoConfiguration.class,
 				McpServerStreamableHttpWebFluxAutoConfiguration.class,
 				McpServerAnnotationScannerAutoConfiguration.class,
 				McpServerSpecificationFactoryAutoConfiguration.class));
 
 	private final ApplicationContextRunner clientApplicationContext = new ApplicationContextRunner()
-		.withPropertyValues("spring.ai.anthropic.apiKey=" + System.getenv("ANTHROPIC_API_KEY"))
+		.withPropertyValues("spring.ai.anthropic.api-key=" + System.getenv("ANTHROPIC_API_KEY"))
 		.withConfiguration(anthropicAutoConfig(McpToolCallbackAutoConfiguration.class, McpClientAutoConfiguration.class,
 				StreamableHttpWebFluxTransportAutoConfiguration.class,
 				McpClientAnnotationScannerAutoConfiguration.class, AnthropicChatAutoConfiguration.class,

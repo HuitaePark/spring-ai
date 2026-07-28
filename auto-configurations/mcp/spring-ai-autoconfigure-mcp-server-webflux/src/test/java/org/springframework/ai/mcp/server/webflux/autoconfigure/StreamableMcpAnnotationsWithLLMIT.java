@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,28 +29,25 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.transport.WebFluxStreamableServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CreateMessageResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springaicommunity.mcp.annotation.McpLogging;
-import org.springaicommunity.mcp.annotation.McpProgress;
-import org.springaicommunity.mcp.annotation.McpTool;
-import org.springaicommunity.mcp.annotation.McpToolParam;
-import org.springaicommunity.mcp.context.McpSyncRequestContext;
 import reactor.netty.DisposableServer;
 import reactor.netty.http.server.HttpServer;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.mcp.annotation.McpLogging;
+import org.springframework.ai.mcp.annotation.McpProgress;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.annotation.McpToolParam;
+import org.springframework.ai.mcp.annotation.context.McpSyncRequestContext;
 import org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration;
 import org.springframework.ai.mcp.client.common.autoconfigure.McpToolCallbackAutoConfiguration;
 import org.springframework.ai.mcp.client.common.autoconfigure.annotations.McpClientAnnotationScannerAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerAutoConfiguration;
-import org.springframework.ai.mcp.server.common.autoconfigure.McpServerObjectMapperAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.McpServerJsonMapperAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.ToolCallbackConverterAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerAnnotationScannerAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerSpecificationFactoryAutoConfiguration;
@@ -58,6 +55,7 @@ import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServ
 import org.springframework.ai.mcp.server.common.autoconfigure.properties.McpServerStreamableHttpProperties;
 import org.springframework.ai.mcp.server.webflux.autoconfigure.capabilities.McpHandlerConfiguration;
 import org.springframework.ai.mcp.server.webflux.autoconfigure.capabilities.McpHandlerService;
+import org.springframework.ai.mcp.server.webflux.transport.WebFluxStreamableServerTransportProvider;
 import org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration;
 import org.springframework.ai.model.chat.client.autoconfigure.ChatClientAutoConfiguration;
 import org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration;
@@ -81,19 +79,19 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Christian Tzolov
  * @author Daniel Garnier-Moiroux
  */
-@EnabledIfEnvironmentVariable(named = "ANTHROPIC_API_KEY", matches = ".*")
+@EnabledIfEnvironmentVariable(named = "ANTHROPIC_API_KEY", matches = ".+")
 public class StreamableMcpAnnotationsWithLLMIT {
 
 	private final ApplicationContextRunner serverContextRunner = new ApplicationContextRunner()
 		.withPropertyValues("spring.ai.mcp.server.protocol=STREAMABLE")
 		.withConfiguration(AutoConfigurations.of(McpServerAutoConfiguration.class,
-				McpServerObjectMapperAutoConfiguration.class, ToolCallbackConverterAutoConfiguration.class,
+				McpServerJsonMapperAutoConfiguration.class, ToolCallbackConverterAutoConfiguration.class,
 				McpServerStreamableHttpWebFluxAutoConfiguration.class,
 				McpServerAnnotationScannerAutoConfiguration.class,
 				McpServerSpecificationFactoryAutoConfiguration.class));
 
 	private final ApplicationContextRunner clientApplicationContext = new ApplicationContextRunner()
-		.withPropertyValues("spring.ai.anthropic.apiKey=" + System.getenv("ANTHROPIC_API_KEY"))
+		.withPropertyValues("spring.ai.anthropic.api-key=" + System.getenv("ANTHROPIC_API_KEY"))
 		.withConfiguration(anthropicAutoConfig(McpToolCallbackAutoConfiguration.class, McpClientAutoConfiguration.class,
 				StreamableHttpWebFluxTransportAutoConfiguration.class,
 				McpClientAnnotationScannerAutoConfiguration.class, AnthropicChatAutoConfiguration.class,
@@ -150,7 +148,7 @@ public class StreamableMcpAnnotationsWithLLMIT {
 
 						assertThat(builder).isNotNull();
 
-						ChatClient chatClient = builder.defaultToolCallbacks(tcp)
+						ChatClient chatClient = builder.defaultTools(tcp)
 							.defaultToolContext(Map.of("progressToken", "test-progress-token"))
 							.build();
 
@@ -286,8 +284,6 @@ public class StreamableMcpAnnotationsWithLLMIT {
 	@ComponentScan(basePackageClasses = McpHandlerService.class)
 	public static class TestMcpClientHandlers {
 
-		private static final Logger logger = LoggerFactory.getLogger(TestMcpClientHandlers.class);
-
 		private TestMcpClientConfiguration.TestContext testContext;
 
 		public TestMcpClientHandlers(TestMcpClientConfiguration.TestContext testContext) {
@@ -296,8 +292,6 @@ public class StreamableMcpAnnotationsWithLLMIT {
 
 		@McpProgress(clients = "server1")
 		public void progressHandler(McpSchema.ProgressNotification progressNotification) {
-			logger.info("MCP PROGRESS: [{}] progress: {} total: {} message: {}", progressNotification.progressToken(),
-					progressNotification.progress(), progressNotification.total(), progressNotification.message());
 			this.testContext.progressNotifications.add(progressNotification);
 			this.testContext.progressLatch.countDown();
 		}
@@ -305,7 +299,6 @@ public class StreamableMcpAnnotationsWithLLMIT {
 		@McpLogging(clients = "server1")
 		public void loggingHandler(McpSchema.LoggingMessageNotification loggingMessage) {
 			this.testContext.loggingNotificationRef.set(loggingMessage);
-			logger.info("MCP LOGGING: [{}] {}", loggingMessage.level(), loggingMessage.data());
 		}
 
 	}

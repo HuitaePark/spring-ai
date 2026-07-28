@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2025 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import com.google.protobuf.util.JsonFormat;
@@ -32,9 +29,11 @@ import io.pinecone.clients.Pinecone;
 import io.pinecone.proto.QueryRequest;
 import io.pinecone.unsigned_indices_model.QueryResponseWithUnsignedIndices;
 import io.pinecone.unsigned_indices_model.VectorWithUnsignedIndices;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.DocumentMetadata;
@@ -62,6 +61,7 @@ import org.springframework.util.StringUtils;
  * @author Soby Chacko
  * @author Thomas Vitale
  * @author Ilayaperumal Gopinathan
+ * @author chabinhwang
  */
 public class PineconeVectorStore extends AbstractObservationVectorStore {
 
@@ -79,9 +79,7 @@ public class PineconeVectorStore extends AbstractObservationVectorStore {
 
 	private final Pinecone pinecone;
 
-	private final ObjectMapper objectMapper;
-
-	private static final Logger logger = LoggerFactory.getLogger(PineconeVectorStore.class);
+	private static final Log logger = LogFactory.getLog(PineconeVectorStore.class);
 
 	/**
 	 * Creates a new PineconeVectorStore using the builder pattern.
@@ -99,7 +97,6 @@ public class PineconeVectorStore extends AbstractObservationVectorStore {
 		this.pineconeDistanceMetadataFieldName = builder.distanceMetadataFieldName;
 
 		this.pinecone = new Pinecone.Builder(builder.apiKey).build();
-		this.objectMapper = new ObjectMapper();
 	}
 
 	/**
@@ -141,10 +138,10 @@ public class PineconeVectorStore extends AbstractObservationVectorStore {
 		List<float[]> embeddings = this.embeddingModel.embed(documents, EmbeddingOptions.builder().build(),
 				this.batchingStrategy);
 		List<VectorWithUnsignedIndices> upsertVectors = new ArrayList<>();
-		for (Document document : documents) {
+		for (int i = 0; i < documents.size(); i++) {
+			Document document = documents.get(i);
 			upsertVectors.add(io.pinecone.commons.IndexInterface.buildUpsertVectorWithUnsignedIndices(document.getId(),
-					EmbeddingUtils.toList(embeddings.get(documents.indexOf(document))), null, null,
-					metadataToStruct(document)));
+					EmbeddingUtils.toList(embeddings.get(i)), null, null, metadataToStruct(document)));
 		}
 		this.pinecone.getIndexConnection(this.pineconeIndexName).upsert(upsertVectors, namespace);
 	}
@@ -168,7 +165,7 @@ public class PineconeVectorStore extends AbstractObservationVectorStore {
 			var structBuilder = Struct.newBuilder();
 			JsonFormat.parser()
 				.ignoringUnknownFields()
-				.merge(this.objectMapper.writeValueAsString(document.getMetadata()), structBuilder);
+				.merge(JsonMapper.shared().writeValueAsString(document.getMetadata()), structBuilder);
 			structBuilder.putFields(this.pineconeContentFieldName, contentValue(document));
 			return structBuilder.build();
 		}
@@ -221,9 +218,12 @@ public class PineconeVectorStore extends AbstractObservationVectorStore {
 			queryRequestBuilder.setFilter(metadataFiltersToStruct(nativeExpressionFilters));
 		}
 
+		Struct filterStruct = StringUtils.hasText(nativeExpressionFilters)
+				? metadataFiltersToStruct(nativeExpressionFilters) : null;
+
 		QueryResponseWithUnsignedIndices queryResponse = this.pinecone.getIndexConnection(this.pineconeIndexName)
-			.queryByVector(request.getTopK(), EmbeddingUtils.toList(queryEmbedding), namespace,
-					metadataFiltersToStruct(nativeExpressionFilters), false, true);
+			.queryByVector(request.getTopK(), EmbeddingUtils.toList(queryEmbedding), namespace, filterStruct, false,
+					true);
 
 		return queryResponse.getMatchesList()
 			.stream()
@@ -264,9 +264,11 @@ public class PineconeVectorStore extends AbstractObservationVectorStore {
 
 			if (!matchingDocs.isEmpty()) {
 				// Then delete those documents by ID
-				List<String> idsToDelete = matchingDocs.stream().map(Document::getId).collect(Collectors.toList());
+				List<String> idsToDelete = matchingDocs.stream().map(Document::getId).toList();
 				delete(idsToDelete, this.pineconeNamespace);
-				logger.debug("Deleted {} documents matching filter expression", idsToDelete.size());
+				if (logger.isDebugEnabled()) {
+					logger.debug("Deleted " + idsToDelete.size() + " documents matching filter expression");
+				}
 			}
 		}
 		catch (Exception e) {
@@ -299,7 +301,7 @@ public class PineconeVectorStore extends AbstractObservationVectorStore {
 	private Map<String, Object> extractMetadata(Struct metadataStruct) {
 		try {
 			String json = JsonFormat.printer().print(metadataStruct);
-			Map<String, Object> metadata = this.objectMapper.readValue(json, new TypeReference<>() {
+			Map<String, Object> metadata = JsonMapper.shared().readValue(json, new TypeReference<>() {
 
 			});
 			metadata.remove(this.pineconeContentFieldName);
@@ -368,9 +370,9 @@ public class PineconeVectorStore extends AbstractObservationVectorStore {
 		}
 
 		/**
-		 * Sets the Pinecone namespace. Note: The free-tier (gcp-starter) doesn't support
-		 * Namespaces.
-		 * @param namespace The namespace to use (leave empty for free tier)
+		 * Sets the Pinecone namespace.
+		 * @param namespace The namespace to use ({@code null} is treated as the default
+		 * namespace)
 		 * @return The builder instance
 		 */
 		public Builder namespace(@Nullable String namespace) {

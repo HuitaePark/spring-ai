@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2025 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class DefaultEmbeddingModelObservationConvention implements EmbeddingMode
 
 	@Override
 	public String getContextualName(EmbeddingModelObservationContext context) {
-		return Optional.of(context.getRequest().getOptions())
+		return Optional.ofNullable(context.getRequest().getOptions())
 			.map(EmbeddingOptions::getModel)
 			.filter(StringUtils::hasText)
 			.map(model -> "%s %s".formatted(context.getOperationMetadata().operationType(), model))
@@ -76,7 +76,7 @@ public class DefaultEmbeddingModelObservationConvention implements EmbeddingMode
 	}
 
 	protected KeyValue requestModel(EmbeddingModelObservationContext context) {
-		return Optional.of(context.getRequest().getOptions())
+		return Optional.ofNullable(context.getRequest().getOptions())
 			.map(EmbeddingOptions::getModel)
 			.filter(StringUtils::hasText)
 			.map(model -> KeyValue.of(EmbeddingModelObservationDocumentation.LowCardinalityKeyNames.REQUEST_MODEL,
@@ -108,7 +108,7 @@ public class DefaultEmbeddingModelObservationConvention implements EmbeddingMode
 	// Request
 
 	protected KeyValues requestEmbeddingDimension(KeyValues keyValues, EmbeddingModelObservationContext context) {
-		return Optional.of(context.getRequest().getOptions())
+		return Optional.ofNullable(context.getRequest().getOptions())
 			.map(EmbeddingOptions::getDimensions)
 			.map(dimensions -> keyValues
 				.and(EmbeddingModelObservationDocumentation.HighCardinalityKeyNames.REQUEST_EMBEDDING_DIMENSIONS

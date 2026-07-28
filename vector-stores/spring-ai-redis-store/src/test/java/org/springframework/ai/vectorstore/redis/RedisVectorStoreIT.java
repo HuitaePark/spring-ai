@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2025 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import redis.clients.jedis.JedisPooled;
+import redis.clients.jedis.RedisClient;
 
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.DocumentMetadata;
@@ -56,6 +56,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Eddú Meléndez
  * @author Thomas Vitale
  * @author Soby Chacko
+ * @author Yanming Zhou
+ * @author Taewoong Kim
  */
 @Testcontainers
 class RedisVectorStoreIT extends BaseVectorStoreTests {
@@ -88,7 +90,7 @@ class RedisVectorStoreIT extends BaseVectorStoreTests {
 
 	@BeforeEach
 	void cleanDatabase() {
-		this.contextRunner.run(context -> context.getBean(RedisVectorStore.class).getJedis().flushAll());
+		this.contextRunner.run(context -> context.getBean(RedisVectorStore.class).getJedisClient().flushAll());
 	}
 
 	@Override
@@ -101,7 +103,7 @@ class RedisVectorStoreIT extends BaseVectorStoreTests {
 
 	@Test
 	void ensureIndexGetsCreated() {
-		this.contextRunner.run(context -> assertThat(context.getBean(RedisVectorStore.class).getJedis().ftList())
+		this.contextRunner.run(context -> assertThat(context.getBean(RedisVectorStore.class).getJedisClient().ftList())
 			.contains(RedisVectorStore.DEFAULT_INDEX_NAME));
 	}
 
@@ -111,6 +113,7 @@ class RedisVectorStoreIT extends BaseVectorStoreTests {
 		this.contextRunner.run(context -> {
 
 			VectorStore vectorStore = context.getBean(VectorStore.class);
+			RedisVectorStore redisVectorStore = context.getBean(RedisVectorStore.class);
 
 			vectorStore.add(this.documents);
 
@@ -125,6 +128,10 @@ class RedisVectorStoreIT extends BaseVectorStoreTests {
 			assertThat(resultDoc.getMetadata()).hasSize(3);
 			assertThat(resultDoc.getMetadata()).containsKeys("meta1", RedisVectorStore.DISTANCE_FIELD_NAME,
 					DocumentMetadata.DISTANCE.value());
+			assertThat(redisVectorStore.searchByText("Spring", RedisVectorStore.DEFAULT_CONTENT_FIELD_NAME, 5))
+				.extracting(Document::getId)
+				.contains("1");
+			assertThat(redisVectorStore.searchByRange("Spring", 0.0)).extracting(Document::getId).contains("1");
 
 			// Remove all documents from the store
 			vectorStore.delete(this.documents.stream().map(doc -> doc.getId()).toList());
@@ -307,10 +314,33 @@ class RedisVectorStoreIT extends BaseVectorStoreTests {
 	}
 
 	@Test
+	void deleteByFilterShouldDeleteAll() {
+		this.contextRunner.run(context -> {
+			VectorStore vectorStore = context.getBean(VectorStore.class);
+
+			int docCount = 1500;
+			List<Document> docs = java.util.stream.IntStream.range(0, docCount)
+				.mapToObj(i -> new Document("Content " + i, Map.of("type", "test", "priority", i)))
+				.toList();
+
+			vectorStore.add(docs);
+
+			Filter.Expression typeFilter = new Filter.Expression(Filter.ExpressionType.EQ, new Filter.Key("type"),
+					new Filter.Value("test"));
+			vectorStore.delete(typeFilter);
+
+			var results = vectorStore
+				.similaritySearch(SearchRequest.builder().query("Content").topK(100).similarityThresholdAll().build());
+
+			assertThat(results.stream().filter(d -> "test".equals(d.getMetadata().get("type")))).isEmpty();
+		});
+	}
+
+	@Test
 	void getNativeClientTest() {
 		this.contextRunner.run(context -> {
 			RedisVectorStore vectorStore = context.getBean(RedisVectorStore.class);
-			Optional<JedisPooled> nativeClient = vectorStore.getNativeClient();
+			Optional<RedisClient> nativeClient = vectorStore.getNativeClient();
 			assertThat(nativeClient).isPresent();
 		});
 	}
@@ -320,10 +350,12 @@ class RedisVectorStoreIT extends BaseVectorStoreTests {
 
 		@Bean
 		public RedisVectorStore vectorStore(EmbeddingModel embeddingModel) {
-			// Create JedisPooled directly with container properties for more reliable
+			// Create RedisClient directly with container properties for more reliable
 			// connection
 			return RedisVectorStore
-				.builder(new JedisPooled(redisContainer.getHost(), redisContainer.getFirstMappedPort()), embeddingModel)
+				.builder(RedisClient.builder()
+					.hostAndPort(redisContainer.getHost(), redisContainer.getFirstMappedPort())
+					.build(), embeddingModel)
 				.metadataFields(MetadataField.tag("meta1"), MetadataField.tag("meta2"), MetadataField.tag("country"),
 						MetadataField.numeric("year"), MetadataField.numeric("priority"), MetadataField.tag("type"))
 				.initializeSchema(true)

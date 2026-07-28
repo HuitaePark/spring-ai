@@ -1,5 +1,5 @@
 /*
- * Copyright 2025-2026 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.transport.WebFluxStreamableServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.Test;
 import reactor.netty.DisposableServer;
 import reactor.netty.http.server.HttpServer;
+import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration;
@@ -38,14 +38,15 @@ import org.springframework.ai.mcp.client.common.autoconfigure.McpToolCallbackAut
 import org.springframework.ai.mcp.client.common.autoconfigure.annotations.McpClientAnnotationScannerAutoConfiguration;
 import org.springframework.ai.mcp.client.webflux.autoconfigure.StreamableHttpWebFluxTransportAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.McpServerAutoConfiguration;
-import org.springframework.ai.mcp.server.common.autoconfigure.McpServerObjectMapperAutoConfiguration;
+import org.springframework.ai.mcp.server.common.autoconfigure.McpServerJsonMapperAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.ToolCallbackConverterAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerAnnotationScannerAutoConfiguration;
 import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerSpecificationFactoryAutoConfiguration;
-import org.springframework.ai.model.ModelOptionsUtils;
+import org.springframework.ai.mcp.server.webflux.transport.WebFluxStreamableServerTransportProvider;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.ai.util.JsonHelper;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.restclient.autoconfigure.RestClientAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -67,10 +68,12 @@ import static org.awaitility.Awaitility.await;
  */
 class McpToolCallbackParameterlessToolIT {
 
+	private static final JsonHelper jsonHelper = new JsonHelper();
+
 	private final ApplicationContextRunner syncServerContextRunner = new ApplicationContextRunner()
 		.withPropertyValues("spring.ai.mcp.server.protocol=STREAMABLE", "spring.ai.mcp.server.type=SYNC")
 		.withConfiguration(AutoConfigurations.of(McpServerAutoConfiguration.class,
-				McpServerObjectMapperAutoConfiguration.class, ToolCallbackConverterAutoConfiguration.class,
+				McpServerJsonMapperAutoConfiguration.class, ToolCallbackConverterAutoConfiguration.class,
 				McpServerStreamableHttpWebFluxAutoConfiguration.class,
 				McpServerAnnotationScannerAutoConfiguration.class,
 				McpServerSpecificationFactoryAutoConfiguration.class));
@@ -100,29 +103,23 @@ class McpToolCallbackParameterlessToolIT {
 
 				McpSyncServer mcpSyncServer = serverContext.getBean(McpSyncServer.class);
 
-				ObjectMapper objectMapper = serverContext.getBean(ObjectMapper.class);
+				JsonMapper jsonMapper = serverContext.getBean(JsonMapper.class);
 
 				String incompleteSchemaJson = "{\"type\":\"object\",\"additionalProperties\":false}";
-				McpSchema.JsonSchema incompleteSchema = objectMapper.readValue(incompleteSchemaJson,
-						McpSchema.JsonSchema.class);
 
 				// Build the tool using the builder pattern
-				McpSchema.Tool parameterlessTool = McpSchema.Tool.builder()
-					.name("getCurrentTime")
+				McpSchema.Tool parameterlessTool = McpSchema.Tool
+					.builder("getCurrentTime", new JacksonMcpJsonMapper(jsonMapper), incompleteSchemaJson)
 					.description("Get the current server time")
-					.inputSchema(incompleteSchema)
 					.build();
 
 				// Create a tool specification that returns a simple response
 				McpServerFeatures.SyncToolSpecification toolSpec = new McpServerFeatures.SyncToolSpecification(
-						parameterlessTool, (exchange, arguments) -> {
-							McpSchema.TextContent content = new McpSchema.TextContent(
-									"Current time: " + Instant.now().toString());
-							return new McpSchema.CallToolResult(List.of(content), false, null);
-						}, (exchange, request) -> {
-							McpSchema.TextContent content = new McpSchema.TextContent(
-									"Current time: " + Instant.now().toString());
-							return new McpSchema.CallToolResult(List.of(content), false, null);
+						parameterlessTool, (exchange, request) -> {
+							McpSchema.TextContent content = McpSchema.TextContent
+								.builder("Current time: " + Instant.now().toString())
+								.build();
+							return McpSchema.CallToolResult.builder().content(List.of(content)).isError(false).build();
 						});
 
 				// Add the tool with incomplete schema to the server
@@ -166,7 +163,7 @@ class McpToolCallbackParameterlessToolIT {
 						String inputSchema = toolDefinition.inputSchema();
 						assertThat(inputSchema).isNotNull().isNotEmpty();
 
-						Map<String, Object> schemaMap = ModelOptionsUtils.jsonToMap(inputSchema);
+						Map<String, Object> schemaMap = jsonHelper.fromJsonToMap(inputSchema);
 						assertThat(schemaMap).isNotNull();
 						assertThat(schemaMap).containsKey("type");
 						assertThat(schemaMap.get("type")).isEqualTo("object");

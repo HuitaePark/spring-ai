@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,11 @@ import org.springframework.core.io.Resource;
  * known as Speech-to-Text.
  *
  * @author Mudabir Hussain
+ * @author guan xu
  * @since 1.0.0
  */
-public interface TranscriptionModel extends Model<AudioTranscriptionPrompt, AudioTranscriptionResponse> {
+public interface TranscriptionModel
+		extends Model<AudioTranscriptionPrompt, AudioTranscriptionResponse>, StreamingTranscriptionModel {
 
 	/**
 	 * Transcribes the audio from the given prompt.
@@ -53,8 +55,7 @@ public interface TranscriptionModel extends Model<AudioTranscriptionPrompt, Audi
 	 * @return The transcribed text.
 	 */
 	default String transcribe(Resource resource, @Nullable AudioTranscriptionOptions options) {
-		AudioTranscriptionPrompt prompt = (options != null ? new AudioTranscriptionPrompt(resource, options)
-				: new AudioTranscriptionPrompt(resource));
+		AudioTranscriptionPrompt prompt = new AudioTranscriptionPrompt(resource, options);
 		AudioTranscription result = this.call(prompt).getResult();
 		return result != null ? result.getOutput() : "";
 	}

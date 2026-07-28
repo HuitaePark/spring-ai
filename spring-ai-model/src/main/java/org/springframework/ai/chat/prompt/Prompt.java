@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2025 the original author or authors.
+ * Copyright 2023-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,12 +41,13 @@ import org.springframework.util.Assert;
  * @author Mark Pollack
  * @author luocongqiu
  * @author Thomas Vitale
+ * @author Sebastien Deleuze
  */
 public class Prompt implements ModelRequest<List<Message>> {
 
 	private final List<Message> messages;
 
-	private final ChatOptions chatOptions;
+	private final @Nullable ChatOptions chatOptions;
 
 	public Prompt(String contents) {
 		this(new UserMessage(contents));
@@ -57,25 +58,24 @@ public class Prompt implements ModelRequest<List<Message>> {
 	}
 
 	public Prompt(List<Message> messages) {
-		this(messages, ChatOptions.builder().build());
+		this(messages, null);
 	}
 
 	public Prompt(Message... messages) {
-		this(Arrays.asList(messages), ChatOptions.builder().build());
+		this(Arrays.asList(messages), null);
 	}
 
-	public Prompt(String contents, ChatOptions chatOptions) {
+	public Prompt(String contents, @Nullable ChatOptions chatOptions) {
 		this(new UserMessage(contents), chatOptions);
 	}
 
-	public Prompt(Message message, ChatOptions chatOptions) {
+	public Prompt(Message message, @Nullable ChatOptions chatOptions) {
 		this(Collections.singletonList(message), chatOptions);
 	}
 
-	public Prompt(List<Message> messages, ChatOptions chatOptions) {
+	public Prompt(List<Message> messages, @Nullable ChatOptions chatOptions) {
 		Assert.notNull(messages, "messages cannot be null");
 		Assert.noNullElements(messages, "messages cannot contain null elements");
-		Assert.notNull(chatOptions, "chatOptions cannot be null");
 		this.messages = messages;
 		this.chatOptions = chatOptions;
 	}
@@ -89,7 +89,7 @@ public class Prompt implements ModelRequest<List<Message>> {
 	}
 
 	@Override
-	public ChatOptions getOptions() {
+	public @Nullable ChatOptions getOptions() {
 		return this.chatOptions;
 	}
 
@@ -174,7 +174,7 @@ public class Prompt implements ModelRequest<List<Message>> {
 	}
 
 	@Override
-	public boolean equals(Object o) {
+	public boolean equals(@Nullable Object o) {
 		if (this == o) {
 			return true;
 		}
@@ -190,7 +190,7 @@ public class Prompt implements ModelRequest<List<Message>> {
 	}
 
 	public Prompt copy() {
-		return new Prompt(instructionsCopy(), this.chatOptions.copy());
+		return new Prompt(instructionsCopy(), this.chatOptions);
 	}
 
 	private List<Message> instructionsCopy() {
@@ -244,7 +244,7 @@ public class Prompt implements ModelRequest<List<Message>> {
 			// and add it as the first item in the list.
 			messagesCopy.add(0, systemMessageAugmenter.apply(new SystemMessage("")));
 		}
-		return new Prompt(messagesCopy, this.chatOptions.copy());
+		return new Prompt(messagesCopy, this.chatOptions);
 	}
 
 	/**
@@ -274,7 +274,7 @@ public class Prompt implements ModelRequest<List<Message>> {
 			}
 		}
 
-		return new Prompt(messagesCopy, this.chatOptions.copy());
+		return new Prompt(messagesCopy, this.chatOptions);
 	}
 
 	/**
@@ -289,7 +289,7 @@ public class Prompt implements ModelRequest<List<Message>> {
 	public Builder mutate() {
 		Builder builder = new Builder().messages(instructionsCopy());
 		if (this.chatOptions != null) {
-			builder.chatOptions(this.chatOptions.copy());
+			builder.chatOptions(this.chatOptions);
 		}
 		return builder;
 	}
@@ -309,7 +309,7 @@ public class Prompt implements ModelRequest<List<Message>> {
 			return this;
 		}
 
-		public Builder messages(Message... messages) {
+		public Builder messages(Message @Nullable ... messages) {
 			if (messages != null) {
 				this.messages = Arrays.asList(messages);
 			}
@@ -328,8 +328,7 @@ public class Prompt implements ModelRequest<List<Message>> {
 
 		public Prompt build() {
 			Assert.state(this.messages != null, "either messages or content needs to be set");
-			return new Prompt(this.messages,
-					(this.chatOptions != null ? this.chatOptions : ChatOptions.builder().build()));
+			return new Prompt(this.messages, this.chatOptions);
 		}
 
 	}
